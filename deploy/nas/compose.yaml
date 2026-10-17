@@ -1,0 +1,27 @@
+# Orapa sur le NAS : https://orapa.eriphe.com
+# Public via le tunnel Cloudflare (port 8686), à la maison et par Tailscale via Traefik.
+# Mise à jour : copier le code dans /mnt/user/appdata/orapa/src puis relancer avec --build.
+name: orapa
+services:
+  orapa:
+    build: /mnt/user/appdata/orapa/src
+    image: orapa:local
+    container_name: orapa
+    restart: unless-stopped
+    ports:
+      - "8686:8080"
+    environment:
+      OIDC_ISSUER: https://auth.eriphe.com/application/o/orapa/
+      OIDC_CLIENT_ID: orapa
+      ALLOWED_ORIGINS: orapa.eriphe.com
+    volumes:
+      - /mnt/user/appdata/orapa/data:/data   # orapa.db (SQLite), propriétaire 65532
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: orapa_default
+      traefik.http.routers.orapa.rule: Host(`orapa.eriphe.com`)
+      traefik.http.services.orapa.loadbalancer.server.port: "8080"

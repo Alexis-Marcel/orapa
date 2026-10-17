@@ -1,0 +1,5 @@
+services:
+  orapa:
+    labels:
+      net.unraid.docker.icon: https://orapa.eriphe.com/favicon.svg
+      net.unraid.docker.webui: https://orapa.eriphe.com
