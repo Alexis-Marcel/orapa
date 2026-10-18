@@ -53,4 +53,4 @@ Variables : `ADDR` (`:8080`), `DATA_DIR` (`data`), `STATIC_DIR` (front compilé)
 
 ## Déploiement
 
-`deploy/nas/deploy.sh` copie le code sur le NAS et reconstruit l'image sur place (`docker compose up -d --build`).
+À chaque push sur `main`, l'action « Image Docker » publie `ghcr.io/alexis-marcel/orapa` (amd64 et arm64). `deploy/nas/deploy.sh` (ou « Update stack » dans Unraid) récupère la nouvelle image et relance la stack.

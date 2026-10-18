@@ -1,11 +1,11 @@
 # Orapa sur le NAS : https://orapa.eriphe.com
 # Public via le tunnel Cloudflare (port 8686), à la maison et par Tailscale via Traefik.
-# Mise à jour : copier le code dans /mnt/user/appdata/orapa/src puis relancer avec --build.
+# Image publiée sur ghcr par l'action « Image Docker » à chaque push sur main.
+# Mise à jour : docker compose pull puis up -d (ou « Update stack » dans Unraid).
 name: orapa
 services:
   orapa:
-    build: /mnt/user/appdata/orapa/src
-    image: orapa:local
+    image: ghcr.io/alexis-marcel/orapa:latest
     container_name: orapa
     restart: unless-stopped
     ports:
