@@ -1,4 +1,4 @@
-import { useRef, type PointerEvent } from "react";
+import { useRef, type PointerEvent, type RefObject } from "react";
 import type { Catalog, Layout, Placement, Point } from "../api/types";
 import { GEM_HEX, waveHex } from "../lib/colors";
 import { ENTRIES, H, W, entryLabel, entryPos, outlineOf, pieceDef } from "../lib/pieces";
@@ -40,12 +40,16 @@ interface Props {
   hotEntries?: Set<number>;
   entryDisabled?: (e: number) => boolean;
   onEntry?: (e: number) => void;
-  onCell?: (x: number, y: number) => void;
+  /** Appui sur une case (la suite du geste se suit sur la fenêtre, voir GemEditor). */
+  onCell?: (x: number, y: number, ev: PointerEvent) => void;
   onHover?: (cell: { x: number; y: number } | null) => void;
   label: string;
   compact?: boolean;
   /** Illustration : une image pour les lecteurs d'écran, sans le détail. */
   decorative?: boolean;
+  /** Pour situer le pointeur sur la mine depuis l'extérieur (glisser-déposer). */
+  svgRef?: RefObject<SVGSVGElement | null>;
+  cursor?: string;
 }
 
 const RING = 0.55; // centre des pastilles, hors de la mine
@@ -91,7 +95,8 @@ function Gem({ cat, p, mode }: { cat: Catalog; p: Placement; mode: "solid" | "gh
 
 export function MineBoard(props: Props) {
   const { cat, gems = [], ghost = [], preview, marks, cellMarks, paths = [], onEntry, onCell, onHover } = props;
-  const svg = useRef<SVGSVGElement>(null);
+  const own = useRef<SVGSVGElement>(null);
+  const svg = props.svgRef ?? own;
   const M = 1.75;
 
   const cellFromEvent = (ev: PointerEvent): { x: number; y: number } | null => {
@@ -172,12 +177,13 @@ export function MineBoard(props: Props) {
           width={W}
           height={H}
           className="mine-hit"
+          style={props.cursor ? { cursor: props.cursor } : undefined}
           onPointerMove={(ev) => onHover?.(cellFromEvent(ev))}
           onPointerDown={(ev) => {
             const c = cellFromEvent(ev);
             if (c) {
               onHover?.(c);
-              onCell(c.x, c.y);
+              onCell(c.x, c.y, ev);
             }
           }}
           onContextMenu={(ev) => ev.preventDefault()}

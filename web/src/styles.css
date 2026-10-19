@@ -404,6 +404,9 @@ input:not([type]),
 .mine-hit {
   fill: transparent;
 }
+.mine-interactive {
+  touch-action: none; /* le doigt glisse les gemmes et peint les cases, sans faire défiler */
+}
 .mine-interactive .mine-hit {
   cursor: crosshair;
 }
@@ -582,6 +585,20 @@ input:not([type]),
   justify-items: center;
   gap: 0.25rem;
   line-height: 1.2;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.drag-float {
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 4px 10px rgb(0 0 0 / 0.5));
+}
+.drag-float .mini-gem {
+  width: 72px;
+  height: 72px;
 }
 .palette-gem.is-placed {
   opacity: 0.45;
@@ -817,12 +834,60 @@ input:not([type]),
   overflow-y: auto;
   font-size: 0.925rem;
 }
+/* Colonnes fixes : numéro, entrée, flèche, sortie, résultat, action. */
 .journal li {
+  display: grid;
+  grid-template-columns: 1.3rem 1.7rem 0.8rem 2.2rem minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 0.35rem;
+  padding: 0.35rem 0.4rem;
+  border-radius: var(--radius-s);
+  font-variant-numeric: tabular-nums;
+}
+.journal-in,
+.journal-out {
+  font-family: var(--font-display);
+  font-weight: 600;
+  text-align: center;
+}
+.journal-arrow {
+  color: var(--dust);
+  text-align: center;
+}
+.journal-back {
+  color: var(--signal);
+  margin-left: 0.15rem;
+}
+.journal-cell {
+  grid-column: 2 / 5;
+  font-family: var(--font-display);
+  font-weight: 600;
+  padding-left: 0.45rem;
+}
+.journal-what {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.4rem 0.4rem;
+  gap: 0.45rem;
+  min-width: 0;
+}
+.journal-what > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.journal-act {
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--signal);
+  background: none;
+  border: 1px solid var(--seam);
   border-radius: var(--radius-s);
+  padding: 0.1rem 0.45rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.journal-act:hover {
+  border-color: var(--signal);
 }
 .journal li.is-focus {
   background: var(--rock-3);
@@ -830,7 +895,6 @@ input:not([type]),
 .journal-n {
   font-family: var(--font-display);
   font-weight: 700;
-  min-width: 1.5rem;
   text-align: right;
   color: var(--dust);
 }

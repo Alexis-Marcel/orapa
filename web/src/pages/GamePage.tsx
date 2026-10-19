@@ -8,8 +8,8 @@ import { Clock, fmt, useNow } from "../components/Clock";
 import { GemPalette, useEditorKeys, useGemEditor } from "../components/GemEditor";
 import { Header } from "../components/Header";
 import { MineBoard, type CellMark, type EdgeMark, type WavePath } from "../components/MineBoard";
-import { gemName, waveHex, waveName } from "../lib/colors";
-import { cellName, entryLabel } from "../lib/pieces";
+import { GEM_HEX, gemName, waveHex, waveName } from "../lib/colors";
+import { H, W, cellName, entryLabel, entryPos } from "../lib/pieces";
 
 // ---- lecture des actions
 
@@ -34,16 +34,17 @@ function readActions(actions: ActionView[], seat: number) {
   return { marks, probes, waves };
 }
 
-function waveText(a: ActionView) {
-  if (a.absorbed) return `${entryLabel(a.entry)} : absorbée`;
-  const where = a.exit === a.entry ? `revient en ${entryLabel(a.exit)}` : `${entryLabel(a.entry)} → ${entryLabel(a.exit)}`;
-  return `${where}, ${waveName(a.colors)}`;
-}
-
-function actionText(a: ActionView) {
-  if (a.kind === "wave") return waveText(a);
-  if (a.kind === "probe") return `${cellName(a.x, a.y)} : ${a.found ? `gemme ${gemName(a.found)}` : "rien"}`;
-  return a.correct ? "disposition proposée : juste" : "disposition proposée : fausse";
+/**
+ * Cases d'une onde sans couleur ressortie juste en face : elle n'a rien touché,
+ * toute sa ligne est vide. null pour les autres ondes.
+ */
+function clearLine(a: ActionView): { x: number; y: number }[] | null {
+  if (a.kind !== "wave" || a.absorbed || a.colors !== 0 || a.exit < 0) return null;
+  const p = entryPos(a.entry);
+  const q = entryPos(a.exit);
+  if (p.x === q.x && p.x > 0 && p.x < W) return Array.from({ length: H }, (_, y) => ({ x: Math.floor(p.x), y }));
+  if (p.y === q.y && p.y > 0 && p.y < H) return Array.from({ length: W }, (_, x) => ({ x, y: Math.floor(p.y) }));
+  return null;
 }
 
 const REASONS: Record<string, (w: string, l: string) => string> = {
@@ -245,8 +246,10 @@ function Setup({ s, sock, cat }: { s: GameView; sock: GameSocket; cat: Catalog }
           cat={cat}
           gems={ready ? s.myLayout : ed.layout}
           preview={ready ? null : ed.preview}
-          onCell={ready ? undefined : ed.click}
+          onCell={ready ? undefined : ed.down}
           onHover={ed.setHover}
+          svgRef={ed.board}
+          cursor={ed.cursor}
           label="Ta mine"
         />
       </div>
@@ -400,12 +403,14 @@ function Hunt({ s, sock, cat }: { s: GameView; sock: GameSocket; cat: Catalog })
             onCell={
               done
                 ? undefined
-                : (x, y) => {
+                : (x, y, ev) => {
                     if (probeMode) setPending({ kind: "probe", x, y });
-                    else ed.click(x, y);
+                    else ed.down(x, y, ev);
                   }
             }
             onHover={ed.setHover}
+            svgRef={ed.board}
+            cursor={probeMode ? undefined : ed.cursor}
             label={`Mine de ${oppName}`}
           />
 
@@ -439,7 +444,8 @@ function Hunt({ s, sock, cat }: { s: GameView; sock: GameSocket; cat: Catalog })
                 disabled={!canAct}
                 aria-pressed={probeMode}
                 onClick={() => {
-                  ed.setHeld(null);
+                  ed.drop();
+                  ed.setMarkMode(false);
                   setProbeMode(!probeMode);
                   setPending(null);
                 }}
@@ -465,7 +471,15 @@ function Hunt({ s, sock, cat }: { s: GameView; sock: GameSocket; cat: Catalog })
             </button>
           </div>
           {tab === "mine" ? (
-            <Journal actions={s.actions} seat={you} focus={focus} setFocus={setFocus} empty="Pas encore d'onde. Clique un point du bord pour en envoyer une." />
+            <Journal
+              actions={s.actions}
+              seat={you}
+              focus={focus}
+              setFocus={setFocus}
+              onMarkEmpty={done ? undefined : (a) => ed.markEmpty(clearLine(a) ?? [])}
+              isMarked={(a) => (clearLine(a) ?? []).every((c) => ed.empties.has(`${c.x},${c.y}`))}
+              empty="Pas encore d'onde. Clique un point du bord pour en envoyer une."
+            />
           ) : (
             <>
               <MineBoard
@@ -491,25 +505,33 @@ function Journal({
   seat,
   focus,
   setFocus,
+  onMarkEmpty,
+  isMarked,
   empty,
 }: {
   actions: ActionView[];
   seat: number;
   focus?: number | null;
   setFocus?: (n: number | null) => void;
+  onMarkEmpty?: (a: ActionView) => void;
+  isMarked?: (a: ActionView) => boolean;
   empty: string;
 }) {
+  const list = useRef<HTMLOListElement>(null);
   let n = 0;
   const rows = actions
     .filter((a) => a.seat === seat)
-    .map((a, i) => {
-      const wn = a.kind === "wave" ? ++n : null;
-      return { a, i, wn };
-    })
-    .reverse();
+    .map((a, i) => ({ a, i, wn: a.kind === "wave" ? ++n : null }));
+
+  // Dans l'ordre des coups, le dernier toujours en vue.
+  useEffect(() => {
+    const el = list.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [rows.length]);
+
   if (rows.length === 0) return <p className="muted small journal-empty">{empty}</p>;
   return (
-    <ol className="journal">
+    <ol className="journal" ref={list}>
       {rows.map(({ a, i, wn }) => (
         <li
           key={i}
@@ -518,10 +540,60 @@ function Journal({
           onMouseLeave={() => setFocus?.(null)}
         >
           <span className="journal-n">{wn ?? (a.kind === "probe" ? "?" : "!")}</span>
-          {a.kind === "wave" && (
-            <span className={`swatch ${a.colors ? "" : "swatch-clear"}`} style={{ background: a.colors ? waveHex(a.colors) : undefined }} />
+          {a.kind === "wave" ? (
+            <>
+              <span className="journal-in">{entryLabel(a.entry)}</span>
+              <span className="journal-arrow" aria-label="vers">→</span>
+              <span className="journal-out">
+                {a.absorbed ? (
+                  <span title="absorbée">×</span>
+                ) : (
+                  <>
+                    {entryLabel(a.exit)}
+                    {a.exit === a.entry && (
+                      <span className="journal-back" title="revenue à son point d'entrée">
+                        ↺
+                      </span>
+                    )}
+                  </>
+                )}
+              </span>
+              <span className="journal-what">
+                {a.absorbed ? (
+                  "absorbée"
+                ) : (
+                  <>
+                    <span className={`swatch ${a.colors ? "" : "swatch-clear"}`} style={{ background: a.colors ? waveHex(a.colors) : undefined }} />
+                    <span>{waveName(a.colors)}</span>
+                  </>
+                )}
+              </span>
+              {onMarkEmpty && clearLine(a) && !isMarked?.(a) && (
+                <button type="button" className="journal-act" onClick={() => onMarkEmpty(a)} title="Elle n'a rien touché : toute sa ligne est vide">
+                  Marquer vide
+                </button>
+              )}
+            </>
+          ) : a.kind === "probe" ? (
+            <>
+              <span className="journal-cell">{cellName(a.x, a.y)}</span>
+              <span className="journal-what">
+                {a.found ? (
+                  <>
+                    <span className="swatch" style={{ background: GEM_HEX[a.found] }} />
+                    <span>gemme {gemName(a.found)}</span>
+                  </>
+                ) : (
+                  "rien"
+                )}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="journal-cell">disposition</span>
+              <span className="journal-what">{a.correct ? "juste" : "fausse"}</span>
+            </>
           )}
-          <span>{actionText(a)}</span>
         </li>
       ))}
     </ol>
