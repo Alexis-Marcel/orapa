@@ -5,9 +5,11 @@ package server
 
 import (
 	"context"
+	crand "crypto/rand"
 	"encoding/json"
 	"errors"
 	"log/slog"
+	mrand "math/rand/v2"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -77,6 +79,7 @@ func (s *Server) Handler() http.Handler {
 	})
 	mux.HandleFunc("GET /api/config", s.handleConfig)
 	mux.HandleFunc("GET /api/pieces", s.handlePieces)
+	mux.HandleFunc("GET /api/random-layout", s.handleRandomLayout)
 	mux.HandleFunc("POST /api/games", s.handleCreate)
 	mux.HandleFunc("GET /api/games/open", s.handleOpen)
 	mux.HandleFunc("POST /api/games/current", s.handleCurrent)
@@ -237,6 +240,15 @@ func (s *Server) handleUserStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, st)
+}
+
+// handleRandomLayout : une pose valide tirée au hasard, pour le bouton « Placement
+// aléatoire » de la pose. Graine neuve à chaque appel : rien de prévisible.
+func (s *Server) handleRandomLayout(w http.ResponseWriter, r *http.Request) {
+	var seed [32]byte
+	_, _ = crand.Read(seed[:])
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, game.RandomLayout(mrand.New(mrand.NewChaCha8(seed))))
 }
 
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {

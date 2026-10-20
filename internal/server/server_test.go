@@ -171,6 +171,14 @@ func TestFullGame(t *testing.T) {
 		t.Fatalf("catalogue %+v", pieces)
 	}
 
+	var random game.Layout
+	if st := h.get("/api/random-layout", "", &random); st != http.StatusOK {
+		t.Fatalf("pose aléatoire %d", st)
+	}
+	if _, err := random.Validate(); err != nil {
+		t.Fatalf("pose aléatoire invalide : %v", err)
+	}
+
 	var created struct {
 		ID    string `json:"id"`
 		Token string `json:"token"`

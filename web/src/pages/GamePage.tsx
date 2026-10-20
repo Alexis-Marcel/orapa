@@ -219,6 +219,23 @@ function Setup({ s, sock, cat }: { s: GameView; sock: GameSocket; cat: Catalog }
   useEditorKeys(ed, !ready && s.you >= 0);
   const now = useNow(true, 500);
   const left = s.setupLeftMs - (now - sock.receivedAt);
+  const [drawing, setDrawing] = useState(false);
+  const [drawError, setDrawError] = useState<string | null>(null);
+
+  // Une pose valide tirée par le serveur : on peut la retoucher ou en tirer une autre.
+  const randomLayout = async () => {
+    setDrawing(true);
+    setDrawError(null);
+    try {
+      const l = await api.randomLayout();
+      ed.drop();
+      ed.setLayout(l);
+    } catch (e) {
+      setDrawError((e as Error).message);
+    } finally {
+      setDrawing(false);
+    }
+  };
 
   if (s.you < 0) {
     return (
@@ -259,8 +276,11 @@ function Setup({ s, sock, cat }: { s: GameView; sock: GameSocket; cat: Catalog }
       {!ready && (
         <div className="setup-tools">
           <GemPalette cat={cat} ed={ed} />
-          {sock.error && <p className="error">{sock.error}</p>}
+          {(sock.error || drawError) && <p className="error">{drawError ?? sock.error}</p>}
           <div className="actions">
+            <button className="btn" disabled={drawing} onClick={randomLayout}>
+              Placement aléatoire
+            </button>
             <button className="btn btn-primary" disabled={ed.layout.length < 5} onClick={() => sock.send({ t: "hide", layout: ed.layout })}>
               Cacher mes gemmes
             </button>
