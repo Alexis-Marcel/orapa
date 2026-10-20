@@ -18,12 +18,14 @@ import (
 	"time"
 
 	"github.com/alexis-marcel/gamekit/auth"
+	"github.com/alexis-marcel/gamekit/portal"
 	"github.com/alexis-marcel/orapa/internal/game"
 )
 
 type Config struct {
 	Store     *Store
 	Auth      auth.Authenticator // nil : pas de comptes (auth.None)
+	Portal    *portal.Info       // nil : le jeu vit seul, sans barre de portail
 	StaticDir string             // front compilé ; vide : API seule
 	Origins   []string           // origines acceptées pour le WebSocket (en plus du même hôte)
 	Log       *slog.Logger
@@ -141,7 +143,7 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	// user : le compte de la requête, utile au front quand c'est le serveur qui
 	// le connaît (mode proxy) ; en mode oidc, le front a déjà le sien.
-	writeJSON(w, http.StatusOK, map[string]any{"auth": s.auth.Info(), "user": s.user(r)})
+	writeJSON(w, http.StatusOK, map[string]any{"auth": s.auth.Info(), "user": s.user(r), "portal": s.cfg.Portal})
 }
 
 func (s *Server) handlePieces(w http.ResponseWriter, r *http.Request) {

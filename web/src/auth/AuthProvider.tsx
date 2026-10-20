@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import type { User } from "oidc-client-ts";
 import { api } from "../api/client";
 import { configureAuth, restoreSession, signIn, signOut, toAuthUser, userManager, type AuthUser } from "../api/oidc";
-import type { Catalog } from "../api/types";
+import type { Catalog, PortalInfo } from "../api/types";
 
 interface AppContext {
   user: AuthUser | null;
@@ -11,6 +11,7 @@ interface AppContext {
   accountName: string; // nom du fournisseur de comptes, vide si l'hébergeur n'en donne pas
   guestPlay: boolean; // jouer sans compte est permis
   accountUrl: string; // page du compte (mode local), vide sinon
+  portal: PortalInfo | null; // portail dont le jeu fait partie, null s'il vit seul
   canSignOut: boolean; // un bouton de déconnexion a un sens (mode proxy : seulement si le proxy en donne une page)
   catalog: Catalog | null;
   signIn: (next?: string) => void;
@@ -34,6 +35,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [accounts, setAccounts] = useState(false);
   const [accountName, setAccountName] = useState("");
   const [guestPlay, setGuestPlay] = useState(true);
+  const [portal, setPortal] = useState<PortalInfo | null>(null);
   // Modes proxy et local : c'est le serveur qui sait qui est connecté (cookie ou en-tête du proxy).
   const [proxy, setProxy] = useState<ServerSession | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
@@ -46,6 +48,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .then(async (cfg) => {
         setAccountName(cfg.auth.accountName ?? "");
         setGuestPlay(cfg.auth.guestPlay);
+        setPortal(cfg.portal);
         if (cfg.auth.mode === "proxy" || cfg.auth.mode === "local") {
           const p: ServerSession = { user: cfg.user, ...(cfg.auth.local ? { ...cfg.auth.local, local: true } : cfg.auth.proxy) };
           setProxy(p);
@@ -85,6 +88,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       accountName,
       guestPlay,
       accountUrl: proxy?.accountUrl ?? "",
+      portal,
       canSignOut: !proxy || Boolean(proxy.logoutUrl),
       catalog,
       signIn: (next) => {
@@ -98,7 +102,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         else if (proxy.logoutUrl) window.location.href = proxy.logoutUrl;
       },
     }),
-    [oidcUser, proxy, loading, accounts, accountName, guestPlay, catalog],
+    [oidcUser, proxy, loading, accounts, accountName, guestPlay, portal, catalog],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

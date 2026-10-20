@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/alexis-marcel/gamekit/auth"
+	"github.com/alexis-marcel/gamekit/portal"
 	"github.com/alexis-marcel/orapa/internal/server"
 )
 
@@ -89,7 +90,7 @@ func run(log *slog.Logger) error {
 	}
 
 	srv, err := server.New(server.Config{
-		Store: store, Auth: authn,
+		Store: store, Auth: authn, Portal: portal.FromEnv(os.Getenv),
 		StaticDir: os.Getenv("STATIC_DIR"), Origins: origins, Log: log,
 	})
 	if err != nil {

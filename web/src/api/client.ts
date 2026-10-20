@@ -1,5 +1,5 @@
 import { accessToken } from "./oidc";
-import type { AuthInfo, Catalog, CurrentGame, Layout, Me, OpenGame } from "./types";
+import type { AuthInfo, Catalog, CurrentGame, Layout, Me, OpenGame, PortalInfo } from "./types";
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = {};
@@ -13,7 +13,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 }
 
 export const api = {
-  config: () => request<{ auth: AuthInfo; user: { id: string; name: string } | null }>("GET", "/api/config"),
+  config: () =>
+    request<{ auth: AuthInfo; user: { id: string; name: string } | null; portal: PortalInfo | null }>("GET", "/api/config"),
   pieces: () => request<Catalog>("GET", "/api/pieces"),
   randomLayout: () => request<Layout>("GET", "/api/random-layout"),
   open: () => request<OpenGame[]>("GET", "/api/games/open"),
