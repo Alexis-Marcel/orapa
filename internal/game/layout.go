@@ -124,3 +124,54 @@ func EntryLabel(e int) string {
 	}
 	return string(rune('A' + e - Width - Height))
 }
+
+// Found dit, pour chaque gemme d'une pose partielle (un brouillon), si elle
+// occupe exactement la place d'une gemme de la vraie mine : toutes ses cases
+// recouvrent une même gemme, de même forme et de même couleur, en entier. Une
+// pose invalide ne trouve rien.
+func (l Layout) Found(truth *Board) []bool {
+	out := make([]bool, len(l))
+	b, err := l.Build()
+	if err != nil {
+		return out
+	}
+	match := make([]int, len(l)) // gemme de la vraie mine recouverte, -1 avant la première case, -2 si raté
+	cells := make([]int, len(l))
+	for i := range match {
+		match[i] = -1
+	}
+	for y := range Height {
+		for x := range Width {
+			c, t := b.cells[y][x], truth.cells[y][x]
+			if c.Piece < 0 || match[c.Piece] == -2 {
+				continue
+			}
+			cells[c.Piece]++
+			switch {
+			case t.Piece < 0 || c.Fill != t.Fill || c.Color != t.Color:
+				match[c.Piece] = -2
+			case match[c.Piece] == -1:
+				match[c.Piece] = t.Piece
+			case match[c.Piece] != t.Piece:
+				match[c.Piece] = -2
+			}
+		}
+	}
+	for i, m := range match {
+		out[i] = m >= 0 && truth.size(m) == cells[i]
+	}
+	return out
+}
+
+// size compte les cases d'une gemme.
+func (b *Board) size(piece int) int {
+	n := 0
+	for y := range Height {
+		for x := range Width {
+			if b.cells[y][x].Piece == piece {
+				n++
+			}
+		}
+	}
+	return n
+}

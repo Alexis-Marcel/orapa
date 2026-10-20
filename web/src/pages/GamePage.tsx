@@ -309,10 +309,21 @@ function Hunt({ s, sock, cat }: { s: GameView; sock: GameSocket; cat: Catalog })
   const [probeMode, setProbeMode] = useState(false);
   const [focus, setFocus] = useState<number | null>(null); // onde survolée dans le journal
   const [tab, setTab] = useState<"mine" | "theirs">("mine");
+  const tabs = useRef<HTMLDivElement>(null);
   useEditorKeys(ed, !done);
 
   const mine = useMemo(() => readActions(s.actions, you), [s.actions, you]);
   const theirs = useMemo(() => readActions(s.actions, opp), [s.actions, opp]);
+
+  // Le brouillon part au serveur (secret jusqu'à la fin) pour le débrief :
+  // une seconde après la dernière retouche, et à chaque reconnexion.
+  const playing = s.phase === "playing";
+  const { send } = sock;
+  useEffect(() => {
+    if (!playing || sock.conn !== "open") return;
+    const t = setTimeout(() => send({ t: "draft", layout: ed.layout }), 1000);
+    return () => clearTimeout(t);
+  }, [playing, sock.conn, send, ed.layout]);
 
   // Un coup joué ferme la confirmation en cours.
   useEffect(() => {
@@ -381,6 +392,15 @@ function Hunt({ s, sock, cat }: { s: GameView; sock: GameSocket; cat: Catalog })
         {outcome && <strong className={`outcome-big outcome-${s.result!.winner === -1 ? "draw" : s.result!.winner === you ? "win" : "loss"}`}>{outcome}</strong>}
         <span>{status}</span>
       </div>
+      {done && (
+        <Debrief
+          s={s}
+          onShow={() => {
+            setTab("theirs");
+            tabs.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          }}
+        />
+      )}
 
       <div className="hunt-grid">
         <section className="hunt-main" aria-label={`Mine de ${oppName}`}>
@@ -463,12 +483,12 @@ function Hunt({ s, sock, cat }: { s: GameView; sock: GameSocket; cat: Catalog })
           </>
         )}
         {done && <EndActions s={s} sock={sock} />}
-          <div className="tabs" role="tablist">
+          <div className="tabs" role="tablist" ref={tabs}>
             <button role="tab" aria-selected={tab === "mine"} className={tab === "mine" ? "is-on" : ""} onClick={() => setTab("mine")}>
               Ton journal
             </button>
             <button role="tab" aria-selected={tab === "theirs"} className={tab === "theirs" ? "is-on" : ""} onClick={() => setTab("theirs")}>
-              Ta mine
+              {done ? `Ta mine, vue par ${oppName}` : "Ta mine"}
             </button>
           </div>
           {tab === "mine" ? (
@@ -483,9 +503,11 @@ function Hunt({ s, sock, cat }: { s: GameView; sock: GameSocket; cat: Catalog })
             />
           ) : (
             <>
+              {done && s.drafts?.[opp] && <p className="muted small tab-note">Ta pose, et en pointillé ce que {oppName} avait posé.</p>}
               <MineBoard
                 cat={cat}
                 gems={s.myLayout}
+                ghost={s.drafts?.[opp]?.layout}
                 marks={theirs.marks}
                 cellMarks={theirs.probes}
                 paths={theirPaths}
@@ -602,6 +624,30 @@ function Journal({
   );
 }
 
+// Débrief : combien de gemmes chacun avait déjà à leur place dans la mine d'en face.
+function Debrief({ s, onShow }: { s: GameView; onShow: () => void }) {
+  const you = s.you;
+  const opp = 1 - you;
+  const count = (seat: number) => s.drafts?.[seat]?.found.filter(Boolean).length ?? 0;
+  const theirs = s.drafts?.[opp];
+  const oppName = s.players[opp]!.name;
+  return (
+    <p className="debrief">
+      <span>
+        Tu avais {count(you)} gemme{count(you) > 1 ? "s" : ""} sur 5 à leur place.{" "}
+        {theirs
+          ? `${oppName} en avait ${count(opp)} sur 5 dans ta mine.`
+          : `${oppName} n'avait rien posé dans ta mine.`}
+      </span>
+      {theirs && (
+        <button type="button" className="btn btn-small btn-quiet" onClick={onShow}>
+          Voir sa recherche
+        </button>
+      )}
+    </p>
+  );
+}
+
 // Guide des couleurs repliable sous le journal ; ouvert par défaut, l'état est retenu.
 function ColorDetails() {
   const [open, setOpen] = useState(() => {
@@ -683,7 +729,7 @@ function Spectate({ s, sock, cat }: { s: GameView; sock: GameSocket; cat: Catalo
           return (
             <section key={seat}>
               <h2>Mine de {s.players[seat]!.name}</h2>
-              <MineBoard cat={cat} gems={s.layouts?.[seat]} marks={hunter.marks} cellMarks={hunter.probes} label={`Mine de ${s.players[seat]!.name}`} />
+              <MineBoard cat={cat} gems={s.layouts?.[seat]} ghost={s.drafts?.[1 - seat]?.layout} marks={hunter.marks} cellMarks={hunter.probes} label={`Mine de ${s.players[seat]!.name}`} />
               <Journal actions={s.actions} seat={1 - seat} empty="Rien pour l'instant." />
             </section>
           );

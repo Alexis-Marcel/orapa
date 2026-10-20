@@ -148,6 +148,27 @@ func TestProbeAndEqual(t *testing.T) {
 	}
 }
 
+func TestFound(t *testing.T) {
+	b := mustBoard(t, sample)
+	moved := sample[4]
+	moved.X = 6
+	got := Layout{sample[0], moved, sample[2]}.Found(b)
+	if !got[0] || got[1] || !got[2] {
+		t.Errorf("brouillon : %v, attendu [true false true]", got)
+	}
+	// Bonne couleur, mauvaise forme : le losange blanc posé sur le triangle blanc.
+	if (Layout{{Kind: WhiteDiamond, X: sample[0].X, Y: sample[0].Y}}).Found(b)[0] {
+		t.Error("losange pris pour le triangle")
+	}
+	// Brouillon invalide (chevauchement) : rien de trouvé.
+	if got := (Layout{sample[0], sample[0]}).Found(b); got[0] || got[1] {
+		t.Errorf("brouillon invalide : %v", got)
+	}
+	if len(Layout(nil).Found(b)) != 0 {
+		t.Error("brouillon vide")
+	}
+}
+
 func TestValidate(t *testing.T) {
 	with := func(i int, p Placement) Layout {
 		l := append(Layout{}, sample...)

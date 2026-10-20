@@ -23,6 +23,9 @@ type record struct {
 	Next     string      `json:"next,omitempty"`
 	Canceled bool        `json:"canceled,omitempty"`
 	Created  time.Time   `json:"created"`
+	// Drafts : où chacun en est de la mine d'en face (gemmes posées pendant la
+	// recherche). Secret jusqu'à la fin, montré au débrief.
+	Drafts [2]game.Layout `json:"drafts,omitzero"`
 	// PausedAt est posé à l'arrêt du serveur : au redémarrage, les pendules
 	// reprennent là où elles étaient.
 	PausedAt time.Time `json:"pausedAt,omitzero"`

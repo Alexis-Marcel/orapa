@@ -84,10 +84,27 @@ export interface GameView {
   actions: ActionView[];
   result?: { winner: number; reason: Reason };
   layouts?: [Layout, Layout];
+  /** À la fin : où chacun en était de la mine d'en face, et les gemmes à leur place. */
+  drafts?: [Draft | null, Draft | null];
   rematch: [boolean, boolean];
   next?: string;
   public: boolean;
   canceled?: boolean;
+}
+
+export interface Draft {
+  layout: Layout;
+  found: boolean[];
+}
+
+export interface CurrentGame {
+  id: string;
+  phase: "waiting" | "setup" | "playing";
+  seat: number;
+  /** Absent : en attente d'un adversaire. */
+  opponent?: string;
+  yourMove: boolean;
+  created: string;
 }
 
 export interface OpenGame {

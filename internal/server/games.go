@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"math/big"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -233,6 +234,16 @@ func (s *Server) apply(g *live, seat int, c command) error {
 		g.rec.Canceled = true
 	case "rematch":
 		err = s.rematch(g, seat)
+	case "draft":
+		// Enregistré sans prévenir personne : rien n'en est visible avant la fin.
+		// Hors partie ou incohérent, le brouillon est ignoré sans erreur.
+		if m.Phase == game.Playing && validDraft(c.Layout) {
+			g.rec.Drafts[seat] = c.Layout
+			if err := s.store.save(g.rec); err != nil {
+				s.log.Error("enregistrement", "game", g.rec.ID, "err", err)
+			}
+		}
+		return nil
 	default:
 		return errors.New("commande inconnue")
 	}
@@ -246,6 +257,23 @@ func (s *Server) apply(g *live, seat int, c command) error {
 	}
 	s.commit(g)
 	return nil
+}
+
+// validDraft accepte une pose partielle : au plus les gemmes du jeu de base,
+// chacune une fois, dans la mine et sans chevauchement.
+func validDraft(l game.Layout) bool {
+	if len(l) > len(game.BaseSet) {
+		return false
+	}
+	seen := map[game.Kind]bool{}
+	for _, p := range l {
+		if seen[p.Kind] {
+			return false
+		}
+		seen[p.Kind] = true
+	}
+	_, err := l.Build()
+	return err == nil
 }
 
 // rematch : quand les deux la demandent, une nouvelle partie démarre avec les
@@ -298,6 +326,52 @@ func (s *Server) openGames() []openGame {
 		g.mu.Unlock()
 	}
 	return out
+}
+
+// currentGames liste les parties pas encore finies où l'on est assis : par les
+// jetons de place gardés dans le navigateur, ou par le compte. Toutes ces
+// parties sont en mémoire (reprises au démarrage, retirées seulement une fois finies).
+func (s *Server) currentGames(tokens map[string]string, u *User) []currentGame {
+	s.mu.Lock()
+	games := make([]*live, 0, len(s.games))
+	for _, g := range s.games {
+		games = append(games, g)
+	}
+	s.mu.Unlock()
+	out := []currentGame{}
+	for _, g := range games {
+		g.mu.Lock()
+		r, m := g.rec, g.rec.Match
+		if !r.Canceled && m.Phase != game.Finished {
+			if tok, ok := tokens[r.ID]; ok || u != nil {
+				if seat := g.seatOf(tok, u); seat >= 0 {
+					cg := currentGame{ID: r.ID, Phase: string(m.Phase), Seat: seat, Created: r.Created}
+					if o := m.Players[1-seat]; o != nil {
+						cg.Opponent = o.Name
+					}
+					switch m.Phase {
+					case game.Setup:
+						cg.YourMove = !m.Players[seat].Ready
+					case game.Playing:
+						cg.YourMove = m.Turn == seat
+					}
+					out = append(out, cg)
+				}
+			}
+		}
+		g.mu.Unlock()
+	}
+	slices.SortFunc(out, func(a, b currentGame) int { return b.Created.Compare(a.Created) })
+	return out
+}
+
+type currentGame struct {
+	ID       string    `json:"id"`
+	Phase    string    `json:"phase"`
+	Seat     int       `json:"seat"`
+	Opponent string    `json:"opponent,omitempty"` // vide : en attente d'un adversaire
+	YourMove bool      `json:"yourMove"`           // à toi de poser ou de jouer
+	Created  time.Time `json:"created"`
 }
 
 type openGame struct {

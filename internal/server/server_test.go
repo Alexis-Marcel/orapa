@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -202,6 +203,20 @@ func TestFullGame(t *testing.T) {
 	if st := h.post("/api/games/nope/join", "", map[string]string{}, nil); st != http.StatusNotFound {
 		t.Fatalf("partie inconnue %d", st)
 	}
+	// Parties en cours : par le jeton de place, ou par le compte.
+	var cur []currentGame
+	h.post("/api/games/current", "", map[string]any{"tokens": map[string]string{created.ID: joined.Token, "nope": "x"}}, &cur)
+	if len(cur) != 1 || cur[0].Seat != 1 || cur[0].Opponent != "Compte alice" || cur[0].Phase != "setup" || !cur[0].YourMove {
+		t.Fatalf("en cours (jeton) %+v", cur)
+	}
+	h.post("/api/games/current", "user:alice", map[string]any{}, &cur)
+	if len(cur) != 1 || cur[0].Seat != 0 || cur[0].Opponent != "Bob le chasseur" {
+		t.Fatalf("en cours (compte) %+v", cur)
+	}
+	h.post("/api/games/current", "", map[string]any{"tokens": map[string]string{created.ID: "faux"}}, &cur)
+	if len(cur) != 0 {
+		t.Fatalf("en cours (mauvais jeton) %+v", cur)
+	}
 	b := h.dial(created.ID, "token="+joined.Token)
 	sb := b.until(phase("setup")).State
 	if sb.You != 1 || sb.Players[1].Name != "Bob le chasseur" || !sb.Players[0].Account {
@@ -244,7 +259,11 @@ func TestFullGame(t *testing.T) {
 		first, second = b, a
 		firstLayout, secondTarget = layoutA, layoutB
 	}
-	_ = firstLayout
+
+	// Brouillons : enregistrés en secret, montrés à la fin avec les gemmes trouvées.
+	moved := game.Placement{Kind: game.WhiteDiamond, X: 4, Y: 5} // ni chez A (3,4) ni chez B (7,5)
+	first.send(command{T: "draft", Layout: game.Layout{firstLayout[0], moved}})
+	second.send(command{T: "draft", Layout: game.Layout{secondTarget[0], secondTarget[0]}}) // invalide : ignoré
 
 	// Le premier envoie une onde : il voit la réponse sans le trajet, l'autre voit le trajet.
 	first.send(command{T: "wave", Entry: 9})
@@ -252,6 +271,9 @@ func TestFullGame(t *testing.T) {
 	ss := second.until(func(m msg) bool { return m.T == "state" && len(m.State.Actions) == 1 }).State
 	if fs.Actions[0].Path != nil || ss.Actions[0].Path == nil {
 		t.Fatal("trajet mal caché")
+	}
+	if fs.Drafts != nil || ss.Drafts != nil {
+		t.Fatal("brouillon visible en cours de partie")
 	}
 	first.send(command{T: "wave", Entry: 0})
 	if m := first.until(func(m msg) bool { return m.T == "error" }); m.Message != game.ErrNotYourTurn.Error() {
@@ -262,6 +284,9 @@ func TestFullGame(t *testing.T) {
 	end := first.until(phase("finished")).State
 	if end.Result == nil || end.Result.Reason != game.BySolve || end.Layouts == nil || end.Actions[0].Path == nil {
 		t.Fatalf("fin %+v", end)
+	}
+	if d := end.Drafts; d == nil || d[1-s.Turn] != nil || d[s.Turn] == nil || !slices.Equal(d[s.Turn].Found, []bool{true, false}) {
+		t.Fatalf("débrief %+v", end.Drafts)
 	}
 
 	// Revanche : les deux la demandent, une nouvelle partie démarre.

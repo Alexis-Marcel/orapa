@@ -35,6 +35,13 @@ type actionView struct {
 	At       time.Time    `json:"at"`
 }
 
+// draftView : le brouillon d'un joueur sur la mine d'en face, et pour chaque
+// gemme si elle était à sa place.
+type draftView struct {
+	Layout game.Layout `json:"layout"`
+	Found  []bool      `json:"found"`
+}
+
 type gameView struct {
 	ID          string          `json:"id"`
 	Phase       string          `json:"phase"`
@@ -51,6 +58,7 @@ type gameView struct {
 	Actions     []actionView    `json:"actions"`
 	Result      *game.Result    `json:"result,omitempty"`
 	Layouts     *[2]game.Layout `json:"layouts,omitempty"`
+	Drafts      *[2]*draftView  `json:"drafts,omitempty"`
 	Rematch     [2]bool         `json:"rematch"`
 	Next        string          `json:"next,omitempty"`
 	Public      bool            `json:"public"`
@@ -88,6 +96,16 @@ func (g *live) view(seat int, now time.Time) gameView {
 	done := m.Phase == game.Finished
 	if done {
 		v.Layouts = &[2]game.Layout{m.Players[0].Layout, m.Players[1].Layout}
+		v.Drafts = &[2]*draftView{}
+		for i, d := range r.Drafts {
+			if len(d) == 0 {
+				continue
+			}
+			// Le brouillon de i porte sur la mine de l'autre.
+			if truth, err := m.Players[1-i].Layout.Build(); err == nil {
+				v.Drafts[i] = &draftView{Layout: d, Found: d.Found(truth)}
+			}
+		}
 	}
 	for _, a := range m.Actions {
 		// Une action vise la mine de l'autre : sa cible en voit le détail.
