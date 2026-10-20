@@ -233,6 +233,7 @@ input:not([type]),
   gap: 0.4rem;
 }
 .segmented label {
+  position: relative;
   display: grid;
   border: 1px solid var(--seam);
   border-radius: var(--radius-s);
@@ -248,7 +249,12 @@ input:not([type]),
   outline: 2px solid var(--signal);
 }
 .segmented input {
+  /* Caché dans son étiquette : sans parent positionné, il partait hors de la page. */
   position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
   opacity: 0;
   pointer-events: none;
 }
