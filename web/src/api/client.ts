@@ -13,7 +13,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 }
 
 export const api = {
-  config: () => request<{ auth: AuthInfo }>("GET", "/api/config"),
+  config: () => request<{ auth: AuthInfo; user: { id: string; name: string } | null }>("GET", "/api/config"),
   pieces: () => request<Catalog>("GET", "/api/pieces"),
   randomLayout: () => request<Layout>("GET", "/api/random-layout"),
   open: () => request<OpenGame[]>("GET", "/api/games/open"),

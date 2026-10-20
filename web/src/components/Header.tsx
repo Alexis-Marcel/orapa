@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useApp } from "../auth/AuthProvider";
 
 export function Header({ children }: { children?: ReactNode }) {
-  const { user, loading, accounts, accountName, signIn, signOut } = useApp();
+  const { user, loading, accounts, accountName, canSignOut, signIn, signOut } = useApp();
   return (
     <header className="topbar">
       <Link to="/" className="brand" aria-label="Orapa, accueil">
@@ -20,9 +20,11 @@ export function Header({ children }: { children?: ReactNode }) {
           (user ? (
             <>
               <span className="account-name">{user.name}</span>
-              <button className="btn btn-small btn-quiet" onClick={signOut}>
-                Se déconnecter
-              </button>
+              {canSignOut && (
+                <button className="btn btn-small btn-quiet" onClick={signOut}>
+                  Se déconnecter
+                </button>
+              )}
             </>
           ) : (
             <button className="btn btn-small" onClick={() => signIn()}>
