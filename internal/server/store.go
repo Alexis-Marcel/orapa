@@ -62,6 +62,9 @@ CREATE INDEX IF NOT EXISTS games_user1 ON games(user1, updated_at);`)
 
 func (s *Store) Close() error { return s.db.Close() }
 
+// DB : la base, pour les comptes du mode local (tables auth_*, voir gamekit/auth).
+func (s *Store) DB() *sql.DB { return s.db }
+
 func (s *Store) Ping(ctx context.Context) error { return s.db.PingContext(ctx) }
 
 func nullable(v string) any {

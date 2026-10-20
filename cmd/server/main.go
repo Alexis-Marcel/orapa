@@ -61,6 +61,18 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	if acfg.Mode == auth.ModeLocal {
+		// Comptes intégrés : dans la base du jeu, pages /compte/ à ses couleurs.
+		if acfg.LocalStore, err = auth.NewSQLStore(ctx, store.DB(), auth.SQLite); err != nil {
+			return err
+		}
+		acfg.Theme = auth.Theme{
+			Title: "Orapa", Background: "#1b1d2e", Surface: "#23263b", Text: "#e9e8f2", Muted: "#9a9cb8",
+			Line: "#3b4066", Accent: "#8fd8e8", OnAccent: "#1b1d2e", Danger: "#ff8a8a",
+			Font:    `"Atkinson Hyperlegible", system-ui, sans-serif`,
+			FontURL: "https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap",
+		}
+	}
 	actx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	authn, err := auth.New(actx, acfg, log)
 	cancel()
