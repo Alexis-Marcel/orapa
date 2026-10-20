@@ -127,7 +127,7 @@ export function GamePage({ id }: { id: string }) {
 // ---- attente du deuxième joueur
 
 function Waiting({ s, sock, onJoined }: { s: GameView; sock: GameSocket; onJoined: (t: string) => void }) {
-  const { user, accounts, signIn } = useApp();
+  const { user, loading, accounts, signIn } = useApp();
   const [name, setName] = useState(guestName);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -184,7 +184,7 @@ function Waiting({ s, sock, onJoined }: { s: GameView; sock: GameSocket; onJoine
         <p>
           Tu joues en tant que <strong>{user.name}</strong>.
         </p>
-      ) : (
+      ) : loading ? null : (
         <>
           <label className="field">
             <span>Ton nom</span>
@@ -202,7 +202,9 @@ function Waiting({ s, sock, onJoined }: { s: GameView; sock: GameSocket; onJoine
         </>
       )}
       {error && <p className="error">{error}</p>}
-      <button className="btn btn-primary">Rejoindre la partie</button>
+      <button className="btn btn-primary" disabled={loading}>
+        Rejoindre la partie
+      </button>
     </form>
   );
 }
