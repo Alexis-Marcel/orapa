@@ -1,7 +1,17 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { User } from "oidc-client-ts";
 import { api } from "../api/client";
-import { configureAuth, restoreSession, signIn, signOut, toAuthUser, userManager, type AuthUser } from "../api/oidc";
+import {
+  configureAuth,
+  lastSessionWasUser,
+  rememberSession,
+  restoreSession,
+  signIn,
+  signOut,
+  toAuthUser,
+  userManager,
+  type AuthUser,
+} from "../api/oidc";
 import type { Catalog, PortalInfo } from "../api/types";
 
 interface AppContext {
@@ -55,13 +65,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setAccounts(Boolean(p.user || p.loginUrl));
           return;
         }
-        configureAuth(cfg.auth.oidc?.issuer ?? "", cfg.auth.oidc?.clientId ?? "");
+        configureAuth(cfg.auth.oidc?.issuer ?? "", cfg.auth.oidc?.clientId ?? "", cfg.auth.oidc?.metadata);
         const m = userManager();
         setAccounts(Boolean(m));
         if (!m) return;
-        setOidcUser(await restoreSession());
-        const onLoaded = (u: User) => setOidcUser(u);
-        const onUnloaded = () => setOidcUser(null);
+        // Invité la dernière fois : la page s'affiche tout de suite en invité, et bascule si la
+        // vérification silencieuse trouve une session. Connecté la dernière fois : on l'attend.
+        const restored = restoreSession().then((u) => {
+          rememberSession(Boolean(u));
+          setOidcUser(u);
+        });
+        if (lastSessionWasUser()) await restored;
+        else setLoading(false);
+        const onLoaded = (u: User) => {
+          rememberSession(true);
+          setOidcUser(u);
+        };
+        const onUnloaded = () => {
+          rememberSession(false);
+          setOidcUser(null);
+        };
         const onRenewError = () => void m.removeUser();
         m.events.addUserLoaded(onLoaded);
         m.events.addUserUnloaded(onUnloaded);
