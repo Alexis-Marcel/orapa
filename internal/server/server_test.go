@@ -307,6 +307,13 @@ func TestFullGame(t *testing.T) {
 	if st := h.get("/api/me", "user:alice", &me); st != http.StatusOK || me.Stats.Played != 1 || len(me.Games) != 1 || me.Games[0].Opponent != "Bob le chasseur" {
 		t.Fatalf("historique %d %+v", st, me)
 	}
+	var pub stats
+	if st := h.get("/api/users/alice", "", &pub); st != http.StatusOK || pub.Played != 1 {
+		t.Fatalf("bilan public %d %+v", st, pub)
+	}
+	if st := h.get("/api/users/inconnu", "", &pub); st != http.StatusOK || pub.Played != 0 {
+		t.Fatalf("bilan d'un inconnu %d %+v", st, pub)
+	}
 	if st := h.get("/api/me", "", nil); st != http.StatusUnauthorized {
 		t.Fatalf("historique invité %d", st)
 	}
