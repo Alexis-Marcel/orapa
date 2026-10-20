@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useApp } from "../auth/AuthProvider";
 
 export function Header({ children }: { children?: ReactNode }) {
-  const { user, loading, accounts, signIn, signOut } = useApp();
+  const { user, loading, accounts, accountName, signIn, signOut } = useApp();
   return (
     <header className="topbar">
       <Link to="/" className="brand" aria-label="Orapa, accueil">
@@ -26,7 +26,7 @@ export function Header({ children }: { children?: ReactNode }) {
             </>
           ) : (
             <button className="btn btn-small" onClick={() => signIn()}>
-              Se connecter avec Eriphe
+              {accountName ? `Se connecter avec ${accountName}` : "Se connecter"}
             </button>
           ))}
       </div>

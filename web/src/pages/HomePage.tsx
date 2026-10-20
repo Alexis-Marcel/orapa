@@ -54,7 +54,7 @@ function cadenceOf(baseMs: number, incMs: number) {
 }
 
 function CreateForm() {
-  const { user, loading } = useApp();
+  const { user, loading, accountName, guestPlay, signIn } = useApp();
   const navigate = useNavigate();
   const [name, setName] = useState(guestName);
   const [cadence, setCadence] = useState("10+5");
@@ -76,6 +76,18 @@ function CreateForm() {
       setBusy(false);
     }
   };
+
+  if (!user && !loading && !guestPlay) {
+    return (
+      <section className="panel create">
+        <h2>Nouvelle partie</h2>
+        <p className="muted">Il faut un compte pour jouer ici.</p>
+        <button className="btn btn-primary" onClick={() => signIn()}>
+          {accountName ? `Se connecter avec ${accountName}` : "Se connecter"}
+        </button>
+      </section>
+    );
+  }
 
   return (
     <form className="panel create" onSubmit={submit}>

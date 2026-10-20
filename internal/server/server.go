@@ -17,35 +17,36 @@ import (
 	"sync"
 	"time"
 
+	"github.com/alexis-marcel/gamekit/auth"
 	"github.com/alexis-marcel/orapa/internal/game"
 )
 
 type Config struct {
-	Store      *Store
-	Verifier   *Verifier // nil : invités seulement
-	OIDCIssuer string    // pour le front
-	OIDCClient string
-	StaticDir  string   // front compilé ; vide : API seule
-	Origins    []string // origines acceptées pour le WebSocket (en plus du même hôte)
-	Log        *slog.Logger
+	Store     *Store
+	Auth      auth.Authenticator // nil : pas de comptes (auth.None)
+	StaticDir string             // front compilé ; vide : API seule
+	Origins   []string           // origines acceptées pour le WebSocket (en plus du même hôte)
+	Log       *slog.Logger
 }
 
 type Server struct {
-	cfg      Config
-	store    *Store
-	verifier *Verifier
-	log      *slog.Logger
-	now      func() time.Time
-	testUser func(*http.Request) *User
+	cfg   Config
+	store *Store
+	auth  auth.Authenticator
+	log   *slog.Logger
+	now   func() time.Time
 
 	mu    sync.Mutex
 	games map[string]*live
 }
 
 func New(cfg Config) (*Server, error) {
-	s := &Server{cfg: cfg, store: cfg.Store, verifier: cfg.Verifier, log: cfg.Log, now: time.Now, games: map[string]*live{}}
+	s := &Server{cfg: cfg, store: cfg.Store, auth: cfg.Auth, log: cfg.Log, now: time.Now, games: map[string]*live{}}
 	if s.log == nil {
 		s.log = slog.Default()
+	}
+	if s.auth == nil {
+		s.auth = auth.None{}
 	}
 	if err := s.resume(); err != nil {
 		return nil, err
@@ -135,7 +136,7 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 }
 
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"oidcIssuer": s.cfg.OIDCIssuer, "oidcClientId": s.cfg.OIDCClient})
+	writeJSON(w, http.StatusOK, map[string]any{"auth": s.auth.Info()})
 }
 
 func (s *Server) handlePieces(w http.ResponseWriter, r *http.Request) {
@@ -146,7 +147,20 @@ func (s *Server) handlePieces(w http.ResponseWriter, r *http.Request) {
 // Cadences proposées : temps de base et incrément, en secondes.
 var cadences = map[string][2]int{"5+3": {300, 3}, "10+5": {600, 5}, "15+10": {900, 10}, "25+15": {1500, 15}}
 
+// guestAllowed refuse une requête sans compte quand l'hébergeur exige un
+// compte pour jouer (GUEST_PLAY=false).
+func (s *Server) guestAllowed(w http.ResponseWriter, r *http.Request) bool {
+	if s.auth.Info().GuestPlay || s.user(r) != nil {
+		return true
+	}
+	writeError(w, http.StatusUnauthorized, "connecte-toi pour jouer")
+	return false
+}
+
 func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
+	if !s.guestAllowed(w, r) {
+		return
+	}
 	var req struct {
 		Name    string `json:"name"`
 		Cadence string `json:"cadence"`
@@ -170,6 +184,9 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleJoin(w http.ResponseWriter, r *http.Request) {
+	if !s.guestAllowed(w, r) {
+		return
+	}
 	var req struct {
 		Name string `json:"name"`
 	}
@@ -232,7 +249,7 @@ type historyItem struct {
 }
 
 // handleUserStats : le bilan public d'un compte (parties finies), par son
-// identifiant OIDC. Lu par le profil du portail Eriphe, comme celui de Gemline.
+// identifiant de compte. Pour un portail qui affiche les parties de chacun.
 func (s *Server) handleUserStats(w http.ResponseWriter, r *http.Request) {
 	st, err := s.store.stats(r.PathValue("id"))
 	if err != nil {

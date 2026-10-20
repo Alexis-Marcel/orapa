@@ -37,7 +37,7 @@ deploy/nas/        stack Compose Manager du NAS
   reprennent et le temps d'arrêt n'est décompté à personne.
 - **Vues par joueur** : chacun voit sa pose et le trajet des ondes envoyées dans sa mine, jamais ceux de l'adversaire ;
   tout est dévoilé à la fin.
-- **Comptes** : jeton d'accès OIDC (Authentik, « Compte Eriphe ») vérifié par la JWKS, `iss`/`aud` épinglés. La place
+- **Comptes** : méthode au choix de l'hébergeur (gamekit/auth) ; en OIDC, jeton d'accès vérifié par la JWKS, `iss`/`aud` épinglés. La place
   d'un joueur est tenue par un jeton de place (seul son SHA-256 est gardé), ou retrouvée par son compte.
 
 ## Développement
@@ -48,8 +48,20 @@ go run ./cmd/server                             # :8080, données dans ./data
 cd web && npm install && npm run dev            # :5173, /api et /ws vers :8080
 ```
 
-Variables : `ADDR` (`:8080`), `DATA_DIR` (`data`), `STATIC_DIR` (front compilé), `OIDC_ISSUER` (sans : invités seulement),
-`OIDC_CLIENT_ID` (`orapa`), `OIDC_AUDIENCE` (= client), `ALLOWED_ORIGINS` (origines WebSocket en plus du même hôte).
+Variables : `ADDR` (`:8080`), `DATA_DIR` (`data`), `STATIC_DIR` (front compilé), `ALLOWED_ORIGINS` (origines
+WebSocket en plus du même hôte).
+
+### Comptes (facultatifs)
+
+On joue toujours en invité ; un compte sert à garder ses parties. La méthode se choisit à l'hébergement, par
+[gamekit/auth](https://github.com/alexis-marcel/gamekit) :
+
+| Variable | Rôle | Défaut |
+|---|---|---|
+| `AUTH_MODE` | `none` (pas de comptes) ou `oidc` (Authentik, Keycloak, Authelia, Google…) | `oidc` si `OIDC_ISSUER` est donné |
+| `GUEST_PLAY` | `false` : un compte est exigé pour créer ou rejoindre une partie | `true` |
+| `ACCOUNT_NAME` | nom du fournisseur dans l'interface (« Se connecter avec … ») | « Se connecter » |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_AUDIENCE` | fournisseur OIDC ; client public avec PKCE, redirections `/auth/callback` et `/auth/silent` | client : `orapa`, audience : le client |
 
 ## Déploiement
 

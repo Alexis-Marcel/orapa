@@ -130,3 +130,13 @@ export interface Me {
   stats: { played: number; won: number; lost: number; drawn: number };
   games: HistoryItem[];
 }
+
+/** Méthode de connexion choisie par l'hébergeur (gamekit/auth). */
+export interface AuthInfo {
+  mode: string;
+  /** « Se connecter avec … » ; absent : « Se connecter ». */
+  accountName?: string;
+  /** Jouer sans compte est permis. */
+  guestPlay: boolean;
+  oidc?: { issuer: string; clientId: string };
+}

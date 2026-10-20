@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/alexis-marcel/gamekit/auth"
 	"github.com/alexis-marcel/orapa/internal/server"
 )
 
@@ -55,20 +56,18 @@ func run(log *slog.Logger) error {
 	}
 	defer store.Close()
 
-	// Comptes : facultatifs. Sans OIDC_ISSUER, on joue en invité seulement.
-	issuer, client := os.Getenv("OIDC_ISSUER"), env("OIDC_CLIENT_ID", "orapa")
-	var verifier *server.Verifier
-	if issuer != "" {
-		vctx, cancel := context.WithTimeout(ctx, 15*time.Second)
-		verifier, err = server.NewVerifier(vctx, issuer, env("OIDC_AUDIENCE", client))
-		cancel()
-		if err != nil {
-			return err
-		}
-	} else {
-		log.Warn("OIDC_ISSUER absent : comptes désactivés")
-		client = ""
+	// Comptes : facultatifs, méthode au choix de l'hébergeur (AUTH_MODE, voir gamekit/auth).
+	acfg, err := auth.FromEnv(os.Getenv, "orapa")
+	if err != nil {
+		return err
 	}
+	actx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	authn, err := auth.New(actx, acfg, log)
+	cancel()
+	if err != nil {
+		return err
+	}
+	log.Info("comptes", "mode", authn.Info().Mode, "invités", authn.Info().GuestPlay)
 
 	var origins []string
 	for _, o := range strings.Split(env("ALLOWED_ORIGINS", "localhost:5173"), ",") {
@@ -78,7 +77,7 @@ func run(log *slog.Logger) error {
 	}
 
 	srv, err := server.New(server.Config{
-		Store: store, Verifier: verifier, OIDCIssuer: issuer, OIDCClient: client,
+		Store: store, Auth: authn,
 		StaticDir: os.Getenv("STATIC_DIR"), Origins: origins, Log: log,
 	})
 	if err != nil {
