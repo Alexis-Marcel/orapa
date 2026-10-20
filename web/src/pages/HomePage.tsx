@@ -3,9 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { api, guestName, saveGuestName, saveSeatToken } from "../api/client";
 import type { Catalog, Layout, Me, OpenGame } from "../api/types";
 import { useApp } from "../auth/AuthProvider";
+import { ColorGuide } from "../components/ColorGuide";
 import { Header } from "../components/Header";
 import { MineBoard, type EdgeMark, type WavePath } from "../components/MineBoard";
-import { BLUE, RED, WHITE, YELLOW, waveHex, waveName } from "../lib/colors";
 import { coloredSegments } from "../lib/waves";
 
 // Une mine de démonstration et une onde qui la traverse : elle part du point 9,
@@ -183,17 +183,6 @@ function MyGames() {
   );
 }
 
-const MIXES: [number, string][] = [
-  [RED | BLUE, "rouge + bleu"],
-  [RED | YELLOW, "rouge + jaune"],
-  [BLUE | YELLOW, "bleu + jaune"],
-  [RED | WHITE, "rouge + blanc"],
-  [BLUE | WHITE, "bleu + blanc"],
-  [YELLOW | WHITE, "jaune + blanc"],
-  [RED | BLUE | YELLOW, "rouge + bleu + jaune"],
-  [RED | YELLOW | BLUE | WHITE, "les quatre"],
-];
-
 function Rules() {
   return (
     <section className="panel rules">
@@ -212,16 +201,7 @@ function Rules() {
       </ol>
       <h3>Couleur de l'onde</h3>
       <p className="muted">Elle prend la couleur de chaque gemme touchée. Toucher deux fois la même couleur ne change rien.</p>
-      <ul className="mixes">
-        {MIXES.map(([c, label]) => (
-          <li key={c}>
-            <span className="swatch" style={{ background: waveHex(c) }} />
-            <span>
-              {label} : <strong>{waveName(c)}</strong>
-            </span>
-          </li>
-        ))}
-      </ul>
+      <ColorGuide />
     </section>
   );
 }

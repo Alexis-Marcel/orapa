@@ -365,7 +365,8 @@ input:not([type]),
   font-size: 0.9rem;
 }
 .mixes li {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 6.2rem minmax(0, 1fr);
   align-items: center;
   gap: 0.5rem;
 }
@@ -900,6 +901,28 @@ input:not([type]),
 }
 .journal-empty {
   margin-top: 0.5rem;
+}
+.guide {
+  margin-top: 1rem;
+  border-top: 1px solid var(--seam);
+  padding-top: 0.75rem;
+}
+.guide summary {
+  cursor: pointer;
+  color: var(--dust);
+  font-size: 0.9rem;
+}
+.guide summary:hover {
+  color: var(--chalk);
+}
+.guide p {
+  margin: 0.5rem 0 0;
+}
+.guide .mixes {
+  margin-top: 0.5rem;
+  grid-template-columns: 1fr;
+  font-size: 0.85rem;
+  gap: 0.3rem;
 }
 .mine-compact {
   margin-bottom: 0.75rem;

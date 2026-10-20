@@ -57,3 +57,29 @@ export function gemName(color: number): string {
 export function components(colors: number): number[] {
   return [RED, YELLOW, BLUE, WHITE].filter((c) => colors & c);
 }
+
+const WORDS: Record<number, string> = { [RED]: "rouge", [YELLOW]: "jaune", [BLUE]: "bleu", [WHITE]: "blanc" };
+
+/** Gemmes qui donnent cette couleur d'onde : « rouge + bleu + blanc ». */
+export function waveRecipe(colors: number): string {
+  const parts = components(colors);
+  if (parts.length === 0) return "aucune gemme touchée";
+  if (parts.length === 4) return "les quatre couleurs";
+  return parts.map((c) => WORDS[c]).join(" + ");
+}
+
+/** Les mélanges d'onde : à deux, à trois, les quatre ; transparente en dernier. */
+export const WAVE_GUIDE: number[] = [
+  RED | YELLOW,
+  RED | BLUE,
+  BLUE | YELLOW,
+  RED | WHITE,
+  BLUE | WHITE,
+  YELLOW | WHITE,
+  RED | YELLOW | WHITE,
+  RED | BLUE | WHITE,
+  BLUE | YELLOW | WHITE,
+  RED | BLUE | YELLOW,
+  RED | YELLOW | BLUE | WHITE,
+  0,
+];

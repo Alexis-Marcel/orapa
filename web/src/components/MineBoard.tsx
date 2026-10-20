@@ -1,6 +1,6 @@
 import { useRef, type PointerEvent, type RefObject } from "react";
 import type { Catalog, Layout, Placement, Point } from "../api/types";
-import { GEM_HEX, waveHex } from "../lib/colors";
+import { GEM_HEX, waveHex, waveName, waveRecipe } from "../lib/colors";
 import { ENTRIES, H, W, entryLabel, entryPos, outlineOf, pieceDef } from "../lib/pieces";
 
 // La mine en SVG, en unités de case : la grille va de (0,0) à (W,H). Autour,
@@ -223,6 +223,7 @@ export function MineBoard(props: Props) {
                   }
             }
           >
+            {mark && !mark.absorbed && <title>{`Onde ${mark.n} : ${waveName(mark.colors)} (${waveRecipe(mark.colors)})`}</title>}
             <circle cx={r.x} cy={r.y} r={0.36} className="entry-disc" style={mark ? { fill: hex } : undefined} />
             {mark && (
               <text x={r.x} y={r.y} className="entry-n" style={{ fill: mark.colors || mark.absorbed ? textOn(hex) : undefined }}>

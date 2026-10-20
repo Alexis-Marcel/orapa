@@ -6,9 +6,10 @@ import { useGame, type GameSocket } from "../api/useGame";
 import { useApp } from "../auth/AuthProvider";
 import { Clock, fmt, useNow } from "../components/Clock";
 import { GemPalette, useEditorKeys, useGemEditor } from "../components/GemEditor";
+import { ColorGuide } from "../components/ColorGuide";
 import { Header } from "../components/Header";
 import { MineBoard, type CellMark, type EdgeMark, type WavePath } from "../components/MineBoard";
-import { GEM_HEX, gemName, waveHex, waveName } from "../lib/colors";
+import { GEM_HEX, gemName, waveHex, waveName, waveRecipe } from "../lib/colors";
 import { H, W, cellName, entryLabel, entryPos } from "../lib/pieces";
 
 // ---- lecture des actions
@@ -494,6 +495,7 @@ function Hunt({ s, sock, cat }: { s: GameView; sock: GameSocket; cat: Catalog })
               <Journal actions={s.actions} seat={opp} empty={`${oppName} n'a encore rien envoyé.`} />
             </>
           )}
+          <ColorDetails />
         </aside>
       </div>
     </div>
@@ -558,7 +560,7 @@ function Journal({
                   </>
                 )}
               </span>
-              <span className="journal-what">
+              <span className="journal-what" title={a.absorbed ? undefined : waveRecipe(a.colors)}>
                 {a.absorbed ? (
                   "absorbée"
                 ) : (
@@ -597,6 +599,36 @@ function Journal({
         </li>
       ))}
     </ol>
+  );
+}
+
+// Guide des couleurs repliable sous le journal ; ouvert par défaut, l'état est retenu.
+function ColorDetails() {
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem("orapa:guide") !== "closed";
+    } catch {
+      return true;
+    }
+  });
+  return (
+    <details
+      className="guide"
+      open={open}
+      onToggle={(e) => {
+        const now = e.currentTarget.open;
+        setOpen(now);
+        try {
+          localStorage.setItem("orapa:guide", now ? "open" : "closed");
+        } catch {
+          // stockage indisponible : l'état n'est pas retenu
+        }
+      }}
+    >
+      <summary>Guide des couleurs</summary>
+      <p className="muted small">L'onde prend la couleur de chaque gemme touchée.</p>
+      <ColorGuide />
+    </details>
   );
 }
 
